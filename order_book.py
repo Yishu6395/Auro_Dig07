@@ -2,7 +2,9 @@ import xml.etree.ElementTree as ET
 
 from heapq import *
 from time import *
+from datetime import datetime
 import threading
+from tabulate import tabulate
 
 # Passing the path of the
 # xml document to enable the
@@ -21,129 +23,121 @@ order_len = len(root)
 buy = []
 sell = []
 
-buy2 = []
-sell2 = []
+dele = []
 
+
+def printTable():
+    for i in range(3):
+        print("book :  Book-{}".format(i+1))
+        head = ["BUY", "SELL"]
+        mydata = []
+        buyCount = 0
+        m = len(buy[i])
+        for j in range(m):
+            [a, c, v] = heappop(buy[i])
+            if (str(c) in dele[i]):
+                continue
+            else:
+                p = ("{} @ {}".format(v, (-1) * a))
+                mydata.append([p, ""])
+                buyCount += 1
+
+        sellCount = 0
+        n = len(sell[i])
+        for j in range(n):
+            [a, c, v] = heappop(sell[i])
+            if (str(c) in dele[i]):
+                continue
+            else:
+                p = ("{} @ {}".format(v, a))
+                if(sellCount < buyCount):
+                    mydata[sellCount][1] = p
+                    sellCount += 1
+                else:
+                    mydata.append(["", p])
+
+        print(tabulate(mydata, headers=head, tablefmt="grid"))
+    print("Done")
 def AddOrder(boo, op, price, vol, id):
-    global buy
-    global sell
-    global buy2, sell2
+    global buy, sell, buy2, sell2, dele
     n = int(boo[5:]) - 1
     while(len(buy) < n+1):
         p = []
         q = []
-        p1 = []
-        q1 = []
+        d = set()
         heapify(p)
         heapify(q)
-        heapify(p1)
-        heapify(q1)
         buy.append(p)
         sell.append(q)
-        buy2.append(p1)
-        sell2.append(q1)
+        dele.append(d)
 
     if(op == "SELL"):
-        book = buy[n]
-        m = len(book)
+        m = len(buy[n])
         if(m == 0):
-            heappush(sell[n], [price, vol, id])
-            heappush(sell2[n], [id, vol, price])
+            heappush(sell[n], [price, id, vol])
+            return
 
-        elif(price > (-1)*book[0][0]):
-            heappush(sell[n], [price, vol, id])
-            heappush(sell2[n], [id, vol, price])
+        [a, c, v] = heappop(buy[n])
+        while(str(c) in dele[n]):
+            [a, c, v] = heappop(buy[n])
+
+        r = time()
+        if(price > (-1)*a):
+            heappush(buy[n], [a, c, v])
+            heappush(sell[n], [price, id, vol])
 
         else:
-            v = book[0][1]
             if(v == vol):
-                [a, b, c] = heappop(buy[n])
-                buy2[n].remove([c, b, a])
+                return
             elif(v > vol):
-                [a, b, c] = buy[n][0]
-                buy[n][0][1] -= vol
-                buy2[n].remove([c, b, a])
-                heappush(buy2[n], [c, b-vol, a])
+                heappush(buy[n], [a, c, v-vol])
             else:
-                [a, b, c] = heappop(buy[n])
-                buy2[n].remove([c, b, a])
                 AddOrder(boo, op, price, vol - v, id)
 
     else:
-        book = sell[n]
-        m = len(book)
+        m = len(sell[n])
         if(m == 0):
-            heappush(buy[n], [(-1)*price, vol, id])
-            heappush(buy2[n], [id, vol, (-1)*price])
+            heappush(buy[n], [(-1)*price, id, vol])
+            return
 
-        elif(price < book[0][0]):
-            heappush(buy[n], [(-1)*price, vol, id])
-            heappush(buy2[n], [id, vol, (-1) * price])
+        [a, c, v] = heappop(sell[n])
+        while (str(c) in dele[n]):
+            [a, c, v] = heappop(sell[n])
+
+        if(price < a):
+            heappush(sell[n], [a, c, v])
+            heappush(buy[n], [(-1)*price, id, vol])
 
         else:
-            v = book[0][1]
             if(v == vol):
-                [a, b, c] = heappop(sell[n])
-                sell2[n].remove([c, b, a])
+                return
             elif(v > vol):
-                [a, b, c] = sell[n][0]
-                sell[n][0][1] -= vol
-                sell2[n].remove([c, b, a])
-                heappush(sell2[n], [c, b-vol, a])
+                heappush(sell[n], [a, c, v-vol])
             else:
-                [a, b, c] = heappop(sell[n])
-                sell2[n].remove([c, b, a])
                 AddOrder(boo, op, price, vol - v, id)
 
 def DeleteOrder(b, id):
-    global buy
-    global sell, buy2, sell2
+    global dele
     n = int(b[5:]) - 1
-    bb = buy[n]
-    sb = sell[n]
-    k = -1
-    for i in range(len(bb)):
-        if(bb[i][2] == id):
-            k = i
-            break
-    if(k != -1):
-        a0 = bb[k][0]
-        a1 = bb[k][1]
-        buy[n].remove([a0, a1, id])
-        return
+    dele[n].add(id)
 
-    for i in range(len(sb)):
-        if(sb[i][2] == id):
-            k = i
-            break
-    if(k != -1):
-        a0 = sb[k][0]
-        a1 = sb[k][1]
-        sell[n].remove([a0, a1, id])
-        return
 
+print("Processing started at: {}".format(datetime.today()))
 st = time()
-
-count = 0
-
-print("Lets begin")
 def fetch(threadNo):
-    global count
     for i in range(order_len):
         a = root[i].attrib
         alen = len(a)
         y = int(a['book'][5:])
         if(y != threadNo):
-            continue;
-        if(alen == 2):
+            continue
+        elif(alen == 2):
             # for deleting an order
             DeleteOrder(a['book'], a['orderId'])
-            count += 1
             #print("Deleted : {}".format(i))
         else:
             #for adding an order
             AddOrder(a['book'], a['operation'], float(a['price']), int(a['volume']), int(a['orderId']))
-            count += 1
             #print("Added : {}".format(i))
 
 
@@ -156,25 +150,10 @@ for i in range(noOfThreads):  # for connection 1
     threads.append(x)
     x.start()
 
-while(count <= order_len):
-    if(count < order_len):
-        continue;
-    for i in range(3):
-        print("Book : {}".format(i))
-        print("BUY")
-        for j in range(len(buy[i])):
-            print("{} @ {}".format(buy[i][j][1],(-1)*buy[i][j][0]))
-        print(" ")
-        print("SELL")
-        for j in range(len(sell[i])):
-            print("{} @ {}".format(sell[i][j][1], sell[i][j][0]))
+for i in range(noOfThreads):
+    threads[i].join()
 
-        print(" ")
-    print("Done")
-    break
-
+printTable()
+print("Processing completed at: {}".format(datetime.today()))
 et = time()
-print(et - st)
-
-# The code for printing the table is yet to be done
-# Else the order book is well maintained and up to date
+print("Processing Duration: {} seconds".format(et - st))
