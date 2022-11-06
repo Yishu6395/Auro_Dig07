@@ -6,15 +6,10 @@ from datetime import datetime
 import threading
 from tabulate import tabulate
 
-# Passing the path of the
-# xml document to enable the
-# parsing process
-
+# Passing the path of the xml document to enable the parsing process
 tree = ET.parse('orders.xml')
 
-# getting the parent tag of
-# the xml document
-
+# getting the parent tag of the xml document
 root = tree.getroot()
 
 # total number of orders
@@ -22,9 +17,7 @@ order_len = len(root)
 
 buy = []
 sell = []
-
 dele = []
-
 
 def printTable():
     for i in range(3):
@@ -58,6 +51,7 @@ def printTable():
 
         print(tabulate(mydata, headers=head, tablefmt="grid"))
     print("Done")
+    
 def AddOrder(boo, op, price, vol, id):
     global buy, sell, buy2, sell2, dele
     n = int(boo[5:]) - 1
@@ -81,7 +75,6 @@ def AddOrder(boo, op, price, vol, id):
         while(str(c) in dele[n]):
             [a, c, v] = heappop(buy[n])
 
-        r = time()
         if(price > (-1)*a):
             heappush(buy[n], [a, c, v])
             heappush(sell[n], [price, id, vol])
